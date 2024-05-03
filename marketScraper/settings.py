@@ -88,6 +88,7 @@ DOWNLOADER_MIDDLEWARES = {
     "marketScraper.middlewares.MarketscraperDownloaderMiddleware": 543,
     "scrapy_cloudflare_middleware.middlewares.CloudFlareMiddleware": 560,
     "scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware": 555,
+    "scrapeops_scrapy_proxy_sdk.scrapeops_scrapy_proxy_sdk.ScrapeOpsScrapyProxySdk": 725,
 }
 
 # Enable or disable extensions
@@ -95,6 +96,9 @@ DOWNLOADER_MIDDLEWARES = {
 # EXTENSIONS = {
 #    "scrapy.extensions.telnet.TelnetConsole": None,
 # }
+
+SCRAPEOPS_API_KEY = "a6a22b0e-2794-46f9-9334-00bf3956a59e"
+SCRAPEOPS_PROXY_ENABLED = True
 
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
