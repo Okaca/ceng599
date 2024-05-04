@@ -27,6 +27,7 @@ USER_AGENT = [
     "market comparer (+https://www.migros.com.tr/)",
     "market comparer (+https://getir.com/)",
     "market comparer (+https://www.carrefoursa.com/)",
+    "market comparer (+https://www.sokmarket.com/)",
 ]
 
 # Obey robots.txt rules
@@ -89,13 +90,15 @@ DOWNLOADER_MIDDLEWARES = {
     "scrapy_cloudflare_middleware.middlewares.CloudFlareMiddleware": 560,
     "scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware": 555,
     "scrapeops_scrapy_proxy_sdk.scrapeops_scrapy_proxy_sdk.ScrapeOpsScrapyProxySdk": 725,
+    "scrapeops_scrapy.middleware.retry.RetryMiddleware": 550,
 }
 
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
-# EXTENSIONS = {
-#    "scrapy.extensions.telnet.TelnetConsole": None,
-# }
+EXTENSIONS = {
+    "scrapy.extensions.telnet.TelnetConsole": None,
+    "scrapeops_scrapy.extension.ScrapeOpsMonitor": 500,
+}
 
 SCRAPEOPS_API_KEY = "a6a22b0e-2794-46f9-9334-00bf3956a59e"
 SCRAPEOPS_PROXY_ENABLED = True
