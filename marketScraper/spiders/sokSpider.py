@@ -37,7 +37,7 @@ class SokSpider(scrapy.Spider):
 
         for url in self.start_urls:
             scraper = cloudscraper.create_scraper()
-            isOkResponse = scraper.get(url, headers=headers)
+            isOkResponse = scraper.get(url, headers=headers, cookies=headers["Cookie"])
             yield scrapy.Request(
                 url=self.dummy_url,
                 callback=self.parse,
