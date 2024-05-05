@@ -50,6 +50,8 @@ class SokSpider(scrapy.Spider):
             )
 
     def parse(self, response):
+        print(response.meta["meta"])
+        print(typeof response.meta["meta"])
         jsonResponse = json.loads(response.meta["meta"])
 
         results = jsonResponse["results"]
