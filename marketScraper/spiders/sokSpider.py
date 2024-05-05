@@ -1,6 +1,5 @@
 import json
-import time
-import requests
+import cloudscraper
 import scrapy
 from datetime import datetime
 from marketScraper.items import MarketItems
@@ -36,15 +35,11 @@ class SokSpider(scrapy.Spider):
             "X-Store-Id": "13412",  # REQUIRED
         }
 
-        # # scrapy.Request(url=self.main_url, headers=headers)
-        # if isOkResponse.status_code == 200:
         for url in self.start_urls:
-            with requests.session() as s:
-                isOkResponse = s.get(url, headers=headers)
-            #         s.get(url, headers=headers)
+            scraper = cloudscraper.create_scraper()
+            isOkResponse = scraper.get(url, headers=headers)
             yield scrapy.Request(
                 url=self.dummy_url,
-                headers=headers,
                 callback=self.parse,
                 meta={"meta": isOkResponse.text},
             )
