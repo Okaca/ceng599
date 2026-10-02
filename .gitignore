@@ -1,0 +1,52 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables / secrets
+.env
+.env.*
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+project.egg-info/
+setup.cfg.bak
+
+# Scrapy
+.scrapy/
+httpcache/
+*.log
+
+# Scraped output files
+*.csv
+*.json
+*.jsonl
+*.jl
+*.xml
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
