@@ -6,7 +6,51 @@
 
 # useful for handling different item types with a single interface
 import os
-import pymongo
+import psycopg
+
+
+class PostgresPipeline:
+
+    def __init__(self, host, port, dbname, user, password):
+        self.conninfo = psycopg.conninfo.make_conninfo(
+            host=host, port=port, dbname=dbname, user=user, password=password
+        )
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            host=crawler.settings.get("POSTGRES_HOST"),
+            port=crawler.settings.get("POSTGRES_PORT"),
+            dbname=crawler.settings.get("POSTGRES_DB"),
+            user=crawler.settings.get("POSTGRES_USER"),
+            password=crawler.settings.get("POSTGRES_PASSWORD"),
+        )
+
+    def open_spider(self, spider):
+        self.conn = psycopg.connect(self.conninfo)
+
+    def close_spider(self, spider):
+        self.conn.close()
+
+    def process_item(self, item, spider):
+        self.conn.execute(
+            """
+            INSERT INTO products
+                (market_name, name, title, price, image_url, item_url, scraped_date)
+            VALUES (%s, %s, %s, %s, %s, %s, COALESCE(%s::timestamp, NOW()))
+            """,
+            (
+                item.get("marketName"),
+                item.get("name"),
+                item.get("title"),
+                item.get("price"),
+                item.get("imageUrl"),
+                item.get("itemURL"),
+                item.get("scrapedDate"),
+            ),
+        )
+        self.conn.commit()
+        return item
 
 
 class MarketscraperPipeline:

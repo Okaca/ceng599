@@ -7,6 +7,12 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # from shutil import which
 
 # SELENIUM_DRIVER_NAME = 'chrome'
@@ -106,13 +112,16 @@ SCRAPEOPS_PROXY_ENABLED = True
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    "marketScraper.pipelines.MarketscraperPipeline": 300,
+    "marketScraper.pipelines.PostgresPipeline": 300,
+    # "marketScraper.pipelines.MarketscraperPipeline": 301,  # MongoDB
 }
 
-MONGO_URI = "mongodb+srv://admin123:admin123!@cluster0.2xrqscy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-MONGO_DATABASE = "ceng599Project"
-MONGODB_USERNAME = "admin123"
-MONGODB_PASSWORD = "admin123!"
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
