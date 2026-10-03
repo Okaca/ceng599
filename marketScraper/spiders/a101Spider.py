@@ -1,56 +1,81 @@
-import json
 import re
 import scrapy
-from datetime import datetime
 from marketScraper.items import MarketItems
+
+API = "https://rio.a101.com.tr/dbmk89vnr/CALL"
+STORE_CODE = "VS032"  # A101 Kapida default store
+CHANNEL = "SLOT"
 
 
 class A101Spider(scrapy.Spider):
     name = "a101Spider"
-    allowed_domains = ["www.a101.com.tr"]
+    allowed_domains = ["rio.a101.com.tr"]
     start_urls = [
-        "https://www.a101.com.tr/kapida/meyve-sebze/meyve",
+        f"{API}/ContentHub/getTree/default?platform=web&channel={CHANNEL}",
     ]
 
     def parse(self, response):
-        stringJSONData = (
-            response.css("script#__NEXT_DATA__")
-            .get()
-            .replace('<script id="__NEXT_DATA__" type="application/json">', "")
-            .replace("</script>", "")
-        )
-        # entire fruits and vegetables can be obtained from the script
-        jsonParseData = json.loads(stringJSONData)
+        # every top-level category: Meyve, Sebze / Et, Tavuk, Şarküteri / ...
+        for category in response.json()["categories"]:
+            # entries named "→" are promotion/collection shortcuts without products of their own
+            if (category.get("action") or {}).get("type") != "category":
+                continue
+            yield response.follow(
+                f"{API}/Store/getProductsByCategory/{STORE_CODE}?id={category['id']}&channel={CHANNEL}",
+                callback=self.parse_category,
+            )
 
-        # yield {"object" : jsonParseData.keys()}
+    def parse_category(self, response):
+        data = response.json()
+        for child in data["children"]:
+            # e.g. "Süt Ürünleri, Kahvaltılık > Süt"
+            category = f"{data['name']} > {child['name']}"
+            for product in child["products"]:
+                attributes = product["attributes"]
+                price = product["price"]
+                # prices are in kuruş: 1990 = 19.90 TL
+                discounted = price.get("discounted") or price["normal"]
+                # 0 for items sold without a weight, e.g. electronics
+                quantity = attributes.get("netWeight") or None
 
-        productsByCategory = jsonParseData["props"]["pageProps"][
-            "productsByCategoryOutput"
-        ]
-
-        children = productsByCategory["children"]
-        for child in children:
-            products = child["products"]
-            # meyve || sebze || yeşillik
-            title = child["name"]
-            for product in products:
-                if len(product["images"]) == 2:
-                    imageUrl = product["images"][1]["url"]
-                else:
-                    imageUrl = product["images"][0]["url"]
-                name = product["attributes"]["name"]
-                itemURL = product["attributes"]["seoUrl"]
-                price = product["price"]["discountedStr"]
-
-                formatted_price = re.findall(r"\d+\,\d{2}", price)
-
-                results = MarketItems(
-                    title=title,
-                    scrapedDate=datetime.today().strftime("%Y-%m-%d"),
-                    imageUrl=imageUrl,
-                    itemURL=itemURL,
-                    name=name,
-                    price=formatted_price[0],
+                yield MarketItems(
                     marketName="a101",
+                    externalId=product["id"],
+                    name=attributes["name"],
+                    price=discounted / 100,
+                    regularPrice=price["normal"] / 100,
+                    discountRate=price.get("discountRate"),
+                    brand=attributes.get("brand") or None,
+                    barcode=self.pick_barcode(attributes.get("barcodes")),
+                    category=category,
+                    quantity=quantity,
+                    unit=self.unit_for(attributes["name"]) if quantity else None,
+                    itemURL=attributes.get("seoUrl"),
+                    imageUrl=self.pick_image(product.get("images")),
+                    inStock=bool(product.get("isEnabled")) and (product.get("stock") or 0) > 0,
+                    storeCode=STORE_CODE,
                 )
-                yield results
+
+    @staticmethod
+    def pick_barcode(barcodes):
+        # prefer a real EAN-8/EAN-13; codes starting with "2" are A101's in-store codes
+        barcodes = barcodes or []
+        for code in barcodes:
+            if len(code) in (8, 13) and not code.startswith("2"):
+                return code
+        return barcodes[0] if barcodes else None
+
+    @staticmethod
+    def pick_image(images):
+        # the list also holds badge images like "yerliUretim"
+        for image in images or []:
+            if image.get("imageType") == "product":
+                return image["url"]
+        return None
+
+    @staticmethod
+    def unit_for(name):
+        # netWeight is in grams, or millilitres for liquids ("Süt 1 L", "Ayran 200 ml")
+        if re.search(r"\d\s*(l|lt|ml|cl)\b", name, re.IGNORECASE):
+            return "ml"
+        return "g"
