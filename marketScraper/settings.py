@@ -93,7 +93,6 @@ ROBOTSTXT_OBEY = False
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
     "marketScraper.middlewares.MarketscraperDownloaderMiddleware": 543,
-    "scrapy_cloudflare_middleware.middlewares.CloudFlareMiddleware": 560,
     "scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware": 555,
 }
 
@@ -142,3 +141,10 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
+
+# Requests with meta={"impersonate": "chrome"} are sent like a real Chrome browser,
+# which gets past Cloudflare's bot check. Other requests use Scrapy's normal downloader.
+DOWNLOAD_HANDLERS = {
+    "http": "scrapy_impersonate.ImpersonateDownloadHandler",
+    "https": "scrapy_impersonate.ImpersonateDownloadHandler",
+}

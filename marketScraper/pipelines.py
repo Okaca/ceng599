@@ -81,26 +81,36 @@ class PostgresPipeline:
             password=crawler.settings.get("POSTGRES_PASSWORD"),
         )
 
-    def open_spider(self, spider):
+    def open_spider(self):
         # autocommit, so each item's "with transaction()" block commits on its own
         self.conn = psycopg.connect(self.conninfo, autocommit=True)
-        self.market_ids = dict(self.conn.execute("SELECT name, id FROM markets").fetchall())
+        self.market_ids = dict(
+            self.conn.execute("SELECT name, id FROM markets").fetchall()
+        )
 
-    def close_spider(self, spider):
+    def close_spider(self):
         self.conn.close()
 
-    def process_item(self, item, spider):
+    def process_item(self, item):
         missing = [f for f in self.REQUIRED_FIELDS if item.get(f) in (None, "")]
         if missing:
             raise DropItem(f"Missing {', '.join(missing)}: {dict(item)}")
 
         market_id = self.market_ids.get(item["marketName"])
         if market_id is None:
-            raise DropItem(f"Unknown market {item['marketName']!r}, add it to the markets table")
+            raise DropItem(
+                f"Unknown market {item['marketName']!r}, add it to the markets table"
+            )
 
         price = to_decimal(item["price"])
         if price is None:
             raise DropItem(f"Unreadable price {item['price']!r}: {dict(item)}")
+
+        # a product without a stated size is sold by the piece, e.g. a mouse is 1 adet
+        quantity = to_decimal(item.get("quantity"))
+        unit = item.get("unit")
+        if quantity is None or not unit:
+            quantity, unit = Decimal(1), "adet"
 
         try:
             with self.conn.transaction():
@@ -113,8 +123,8 @@ class PostgresPipeline:
                         item.get("brand"),
                         item.get("barcode"),
                         item.get("category"),
-                        to_decimal(item.get("quantity")),
-                        item.get("unit"),
+                        quantity,
+                        unit,
                         item.get("itemURL"),
                         item.get("imageUrl"),
                     ),
@@ -132,35 +142,4 @@ class PostgresPipeline:
                 )
         except psycopg.Error as e:
             raise DropItem(f"Database error {e}: {dict(item)}")
-        return item
-
-
-class MarketscraperPipeline:
-
-    def __init__(self, mongo_uri, mongo_db, mongo_user, mongo_password):
-        self.mongo_uri = mongo_uri
-        self.mongo_db = mongo_db
-        self.mongo_user = mongo_user
-        self.mongo_password = mongo_password
-
-    @classmethod
-    def from_crawler(cls, crawler):
-        return cls(
-            mongo_uri=crawler.settings.get("MONGO_URI"),
-            mongo_db=crawler.settings.get("MONGO_DATABASE"),
-            mongo_user=crawler.settings.get("MONGODB_USERNAME"),
-            mongo_password=crawler.settings.get("MONGODB_PASSWORD"),
-        )
-
-    def open_spider(self, spider):
-        self.client = pymongo.MongoClient(
-            self.mongo_uri, username=self.mongo_user, password=self.mongo_password
-        )
-        self.db = self.client[self.mongo_db]
-
-    def close_spider(self, spider):
-        self.client.close()
-
-    def process_item(self, item, spider):
-        self.db[item["marketName"]].insert_one(dict(item))
         return item

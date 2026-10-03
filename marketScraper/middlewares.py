@@ -68,7 +68,7 @@ class MarketscraperDownloaderMiddleware:
         crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
         return s
 
-    def process_request(self, request, spider):
+    def process_request(self, request):
         # Called for each request that goes through the downloader
         # middleware.
 
@@ -80,7 +80,7 @@ class MarketscraperDownloaderMiddleware:
         #   installed downloader middleware will be called
         return None
 
-    def process_response(self, request, response, spider):
+    def process_response(self, request, response):
         # Called with the response returned from the downloader.
 
         # Must either;
@@ -89,7 +89,7 @@ class MarketscraperDownloaderMiddleware:
         # - or raise IgnoreRequest
         return response
 
-    def process_exception(self, request, exception, spider):
+    def process_exception(self, request, exception):
         # Called when a download handler or a process_request()
         # (from other downloader middleware) raises an exception.
 
