@@ -1,0 +1,18 @@
+# keep the image small and free of secrets: .env is passed in by docker-compose at runtime
+.env
+.env.*
+.git
+.gitignore
+venv/
+.venv/
+logs/
+db/
+**/__pycache__/
+*.py[cod]
+*.log
+.scrapy/
+.vscode/
+.idea/
+docker-compose.yml
+Dockerfile
+.dockerignore

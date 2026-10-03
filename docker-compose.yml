@@ -15,5 +15,21 @@ services:
       timeout: 5s
       retries: 5
 
+  scraper:
+    build: .
+    container_name: market_scraper
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # inside the compose network the database is reached by its service name,
+      # on its internal port, not through localhost
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
