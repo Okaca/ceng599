@@ -10,15 +10,16 @@ UNITS = {
     "cl": ("ml", 10),
     "ml": ("ml", 1),
     "adet": ("adet", 1),
+    "ürün": ("adet", 1),  # Getir: "2 Ürün"
 }
 
 # sizes above this are typos on the site ("Yoğurt 1750 kg"), not real packages
 MAX_QUANTITY = 100_000  # 100 kg, 100 L or 100000 pieces
 
-# "6x180 ml", "6 x 1,5 L", "4'lü 100 g" (count is optional), "500 G", "1,5 Lt".
+# "6x180 ml", "6 x 1,5 L", "4*85 g", "4'lü 100 g" (count is optional), "500 G", "1,5 Lt".
 # The number must start a word, so model codes like "XC4010L" are not read as 4010 L.
 SIZE = re.compile(
-    r"(?<![\w.,])(?:(\d+)\s*(?:x|'li|'lı|'lu|'lü)\s*)?(\d+(?:[.,]\d+)?)\s*(kg|gr|g|lt|l|cl|ml|adet)\b",
+    r"(?<![\w.,])(?:(\d+)\s*(?:x|\*|'li|'lı|'lu|'lü)\s*)?(\d+(?:[.,]\d+)?)\s*(kg|gr|g|lt|l|cl|ml|adet|ürün)\b",
     re.IGNORECASE,
 )
 # names ending in a bare unit: "Muz Kg", "Avokado Adet"

@@ -25,6 +25,7 @@ setup.cfg.bak
 .scrapy/
 httpcache/
 *.log
+logs/
 
 # Scraped output files
 *.csv

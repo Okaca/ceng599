@@ -29,12 +29,12 @@ SPIDER_MODULES = ["marketScraper.spiders"]
 NEWSPIDER_MODULE = "marketScraper.spiders"
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-USER_AGENT = [
-    "market comparer (+https://www.migros.com.tr/)",
-    "market comparer (+https://getir.com/)",
-    "market comparer (+https://www.carrefoursa.com/)",
-    "market comparer (+https://www.sokmarket.com/)",
-]
+# a real Chrome User-Agent: sites like Getir answer 403 to bot-like ones, and it has to
+# match the browser that "impersonate" requests pretend to be
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+)
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
