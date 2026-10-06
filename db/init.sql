@@ -36,9 +36,9 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products (barcode);
 
 -- Product search (used by the webapp). search_fold folds Turkish letters to ASCII and
--- lowercases, so 'STARKİNG', 'Starking' and 'starking' compare equal; the webapp folds
--- the search text the same way (api/routes/routes.py fold()). The trigram index makes
--- "name contains ..." searches fast.
+-- lowercases, so 'STARKİNG', 'Starking' and 'starking' compare equal. The webapp runs
+-- both the product name and the search text through it (api/routes/routes.py matches()).
+-- The trigram index makes "name contains ..." searches fast.
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE OR REPLACE FUNCTION search_fold(t TEXT) RETURNS TEXT
