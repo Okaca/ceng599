@@ -12,6 +12,7 @@ ENV/
 # Environment variables / secrets
 .env
 .env.*
+!.env.example
 
 # Packaging / build artifacts
 build/
@@ -51,3 +52,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# built images for the Pi
+dist/

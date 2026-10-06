@@ -3,6 +3,12 @@ services:
     image: postgres:17-alpine
     container_name: market_postgres
     restart: unless-stopped
+    logging:
+      # cap Docker's own log of the container; Docker keeps it forever by default
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     env_file: .env
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
@@ -16,9 +22,18 @@ services:
       retries: 5
 
   scraper:
+    # local build for the PC; the Pi pulls metu1onurc1/market-scraper from Docker Hub instead
+    # (see deployment.md)
+    image: market-scraper:latest
     build: .
     container_name: market_scraper
     restart: unless-stopped
+    logging:
+      # cap Docker's own log of the container; Docker keeps it forever by default
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     env_file: .env
     environment:
       # inside the compose network the database is reached by its service name,

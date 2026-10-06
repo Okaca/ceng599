@@ -16,3 +16,4 @@ db/
 docker-compose.yml
 Dockerfile
 .dockerignore
+dist/
