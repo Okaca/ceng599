@@ -988,3 +988,109 @@ COMMIT;
 --   LEFT JOIN category_resolution r ON r.market_id = p.market_id AND r.category = p.category
 --   WHERE r.category_id IS NULL
 --   GROUP BY 1, 2 ORDER BY 1, 2;
+
+-- Product groups ---------------------------------------------------------------
+-- The same product in different markets, matched by name and size, so the webapp can
+-- list each product once with every market's price. Only A101 has barcodes, so a
+-- product's group is a match key: its size plus the set of words of its name and
+-- brand, after folding Turkish letters, replacing synonyms and dropping filler words:
+--
+--   "Pınar Süt 1 L" (A101), "PINAR SÜT 1L" (Migros)  ->  1000 ml | pinar sut
+--   "Hıyar Kg" (Migros), "Salatalık Paket" (Getir)   ->  1000 g | salatalik
+--
+-- Matching is strict (every word must agree), so different products rarely merge.
+
+-- Words that mean the same thing, folded like search_fold(). Search uses them too:
+-- searching "hıyar" also finds "salatalık".
+CREATE TABLE IF NOT EXISTS synonyms (
+    word       TEXT PRIMARY KEY,
+    canonical  TEXT NOT NULL
+);
+
+-- Words that say nothing about which product it is: units, packaging, "yeni"
+CREATE TABLE IF NOT EXISTS filler_words (
+    word  TEXT PRIMARY KEY
+);
+
+-- The match key of one product. For fruit and vegetables the caller passes no brand:
+-- a market's own label on its tomatoes does not make them another product.
+--   "%3" -> "pct3d", "%1,5" -> "pct1d5": fat percentages keep products apart
+--   "4 Adet x 28 g", "6x200 ml" -> "pack4", "pack6": multipacks stay apart from singles
+--   "2+1" -> "deal2p1": so do deals
+--   plain numbers, "500g"-style words and one-letter grades ("Elma Starking A") go,
+--   as the size is already in quantity/unit
+-- search_path is set because Postgres 17 runs functions of a materialized view with a
+-- search path that leaves out public, where search_fold() and the tables above live.
+CREATE OR REPLACE FUNCTION product_match_key(p_name TEXT, p_brand TEXT, p_quantity NUMERIC, p_unit TEXT)
+RETURNS TEXT
+LANGUAGE sql STABLE PARALLEL SAFE
+SET search_path = public, pg_catalog
+AS $$
+    SELECT coalesce(trim_scale(p_quantity)::text, '?') || ' ' || coalesce(p_unit, '?') || ' | '
+        || coalesce(string_agg(DISTINCT t.word, ' ' ORDER BY t.word), '')
+    FROM (
+        SELECT coalesce(s.canonical, w.word) AS word
+        FROM regexp_split_to_table(
+            regexp_replace(
+                regexp_replace(regexp_replace(regexp_replace(
+                    search_fold(p_name || ' ' || coalesce(p_brand, '')),
+                    '%\s*([0-9]+)(?:[.,]([0-9]+))?', ' pct\1d\2 ', 'g'),
+                    '([0-9]+)\s*(?:adet\s*)?x\s*(?=[0-9])', ' pack\1 ', 'g'),
+                    '([0-9]+)\s*\+\s*([0-9]+)', ' deal\1p\2 ', 'g'),
+                '[^a-z0-9]+', ' ', 'g'),
+            ' ') AS w(word)
+        LEFT JOIN synonyms s ON s.word = w.word
+        WHERE w.word <> ''
+          AND w.word !~ '^[0-9]+$'
+          AND w.word !~ '^[0-9]+(g|gr|kg|ml|l|lt|cl)$'
+          AND length(w.word) > 1
+    ) t
+    WHERE t.word NOT IN (SELECT word FROM filler_words)
+$$;
+
+-- Every product's group. Materialized, as computing keys for every product on each
+-- request would be slow: the scraper refreshes it after each run (run_spiders.py), and
+-- the end of this file refreshes it too. The matching rules live in the function and
+-- the two tables above; changing this SELECT itself needs a DROP MATERIALIZED VIEW first.
+CREATE MATERIALIZED VIEW IF NOT EXISTS product_groups AS
+SELECT p.id AS product_id,
+       product_match_key(
+           p.name,
+           CASE WHEN c.slug LIKE 'meyve-sebze%' THEN NULL ELSE p.brand END,
+           p.quantity,
+           p.unit
+       ) AS group_key
+FROM products p
+LEFT JOIN category_resolution cr ON cr.market_id = p.market_id AND cr.category = p.category
+LEFT JOIN categories c ON c.id = cr.category_id;
+
+-- unique, so it can be refreshed without blocking readers (REFRESH ... CONCURRENTLY)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_product_groups ON product_groups (product_id);
+CREATE INDEX IF NOT EXISTS idx_product_groups_key ON product_groups (group_key);
+
+-- The synonyms and filler words, rebuilt from scratch in one transaction
+BEGIN;
+
+DELETE FROM synonyms;
+INSERT INTO synonyms (word, canonical) VALUES
+    ('hiyar', 'salatalik'),
+    ('kurusu', 'kuru'),
+    ('sikma', 'sikmalik'),
+    ('grany', 'granny'),
+    ('jalepon', 'jalapeno'),
+    ('lt', 'l'),
+    ('litre', 'l'),
+    ('gr', 'g'),
+    ('gram', 'g');
+
+DELETE FROM filler_words;
+INSERT INTO filler_words (word) VALUES
+    ('adet'), ('paket'), ('pkt'), ('x'), ('li'), ('lu'), ('yeni'), ('ve'), ('ile'),
+    ('kg'), ('g'), ('ml'), ('l'), ('cl'), ('kilo'),
+    -- how fresh produce is packed or priced, not what it is
+    ('file'), ('ekonomik');
+
+COMMIT;
+
+-- Regroup with the rules above
+REFRESH MATERIALIZED VIEW product_groups;
