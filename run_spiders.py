@@ -101,18 +101,36 @@ def run_spider(spider, log_dir):
     return line + ("   FAILED: " + ", ".join(problems) if problems else "   ok"), not problems
 
 
+def connect():
+    load_dotenv(ROOT / ".env")
+    return psycopg.connect(
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        port=os.getenv("POSTGRES_PORT", "5432"),
+        dbname=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+        autocommit=True,
+    )
+
+
+def refresh_product_groups():
+    """Regroups the products for the webapp, which lists the same product of different
+    markets together (product_groups in db/init.sql). CONCURRENTLY keeps the webapp
+    answering from the old groups while the new ones are computed."""
+    started = time.monotonic()
+    try:
+        with connect() as conn:
+            conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY product_groups")
+    except psycopg.Error as e:
+        return f"product groups refresh failed: {e}", False
+    return f"product groups refreshed in {time.monotonic() - started:.0f} s", True
+
+
 def database_check():
     """Saved prices per market today vs. the previous run, catching silent partial runs."""
-    load_dotenv(ROOT / ".env")
     lines, ok = [], True
     try:
-        with psycopg.connect(
-            host=os.getenv("POSTGRES_HOST", "localhost"),
-            port=os.getenv("POSTGRES_PORT", "5432"),
-            dbname=os.getenv("POSTGRES_DB"),
-            user=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD"),
-        ) as conn:
+        with connect() as conn:
             for market, today, previous in conn.execute(DAILY_COUNTS):
                 today, line = today or 0, f"{market:16} {today or 0:7} prices today"
                 if previous:
@@ -150,9 +168,10 @@ def main():
         summary.append(line)
         all_ok &= ok
 
+    groups_line, groups_ok = refresh_product_groups()
     db_lines, db_ok = database_check()
-    summary += ["", *db_lines, "", f"Run finished {datetime.now():%Y-%m-%d %H:%M}"]
-    all_ok &= db_ok
+    summary += ["", *db_lines, groups_line, "", f"Run finished {datetime.now():%Y-%m-%d %H:%M}"]
+    all_ok &= db_ok and groups_ok
 
     text = "\n".join(summary) + "\n"
     print("\n" + text)
